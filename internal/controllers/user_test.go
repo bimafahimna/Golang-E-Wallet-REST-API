@@ -21,6 +21,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func strPointer(text string) *string {
+	return &text
+}
+
 func TestNewUserController(t *testing.T) {
 	t.Run("Should return not nil userController struct pointer", func(t *testing.T) {
 		gin.SetMode(gin.TestMode)
@@ -34,10 +38,6 @@ func TestNewUserController(t *testing.T) {
 }
 
 func TestUserControllerRegister(t *testing.T) {
-
-	strPointer := func(text string) *string {
-		return &text
-	}
 
 	randomString := func(length int) string {
 		rand.Seed(time.Now().UnixNano())
@@ -275,6 +275,7 @@ func TestUserControllerGetDetails(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/details", nil)
 
 			ctx.Set("user_id", test.JWTUserID)
 
@@ -289,6 +290,54 @@ func TestUserControllerGetDetails(t *testing.T) {
 			expectedResJSON, _ := json.Marshal(res)
 
 			userController.GetDetails(ctx)
+			middlewares.ErrorMiddleware(ctx)
+
+			assert.Equal(t, utils.StatusCode(test.expectedErr), w.Code)
+			assert.Equal(t, string(expectedResJSON), w.Body.String())
+		})
+	}
+}
+
+func TestUserControllerForgotPassword(t *testing.T) {
+	tests := []struct {
+		name        string
+		requestBody dtos.UserForgotPwdRequest
+		expectedRes *string
+		expectedErr error
+	}{
+		{
+			name:        "should return error Email field is required",
+			requestBody: dtos.UserForgotPwdRequest{},
+			expectedRes: nil,
+			expectedErr: &apperrors.CustomValidationErrors{
+				apperrors.ValidationError{
+					Field: "email",
+					Msg:   "this field is required",
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+
+			w := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(w)
+			reqBody, _ := json.Marshal(test.requestBody)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/forgot-password", strings.NewReader(string(reqBody)))
+
+			mockUserService := mocks.NewUserService(t)
+			mockUserService.On("ForgotPassword", ctx, test.requestBody.Email).Return(test.expectedRes, test.expectedErr).Maybe()
+			userController := controllers.NewUserController(mockUserService)
+
+			res := utils.ResponseMsgBody(test.expectedErr, test.expectedRes, nil)
+			if test.expectedRes == nil {
+				res = utils.ResponseMsgBody(test.expectedErr, nil, nil)
+			}
+			expectedResJSON, _ := json.Marshal(res)
+
+			userController.ForgotPassword(ctx)
 			middlewares.ErrorMiddleware(ctx)
 
 			assert.Equal(t, utils.StatusCode(test.expectedErr), w.Code)
