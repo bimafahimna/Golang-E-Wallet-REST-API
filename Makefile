@@ -13,7 +13,7 @@ coverage:
 	rm -rf coverage.out
 
 mock:
-	mockery --all --case snake --output .internal/mocks
+	mockery --all --case snake --output internal/mocks
 
 reset_sql:
 	go run .
