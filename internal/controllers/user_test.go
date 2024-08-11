@@ -158,7 +158,83 @@ func TestUserControllerRegister(t *testing.T) {
 
 			assert.Equal(t, utils.StatusCode(test.expectedErr), w.Code)
 			assert.Equal(t, string(expectedResJSON), w.Body.String())
+		})
+	}
+}
 
+func TestUserControllerLogin(t *testing.T) {
+	tests := []struct {
+		name        string
+		requestBody dtos.UserLoginRequest
+		expectedRes gin.H
+		expectedErr error
+	}{
+		{
+			name: "should return Json Web Token",
+			requestBody: dtos.UserLoginRequest{
+				Email:    "lmao@gmail.com",
+				Password: "321123",
+			},
+			expectedRes: gin.H{"token": "ezhawjbdlnubyib98y172bjk"},
+			expectedErr: nil,
+		},
+		{
+			name: "should return error this field is required",
+			requestBody: dtos.UserLoginRequest{
+				Email: "lmao@gmail.com",
+			},
+			expectedRes: nil,
+			expectedErr: &apperrors.CustomValidationErrors{
+				apperrors.ValidationError{
+					Field: "password",
+					Msg:   "this field is required",
+				},
+			},
+		},
+		{
+			name: "should return error invalid email address format",
+			requestBody: dtos.UserLoginRequest{
+				Email:    "lmao",
+				Password: "321123",
+			},
+			expectedRes: nil,
+			expectedErr: apperrors.NewCustomError(nil, errormsg.ErrMsgInvalidEmail, ""),
+		},
+		{
+			name: "should return error from user service",
+			requestBody: dtos.UserLoginRequest{
+				Email:    "lmao@gmail.com",
+				Password: "321123",
+			},
+			expectedRes: nil,
+			expectedErr: fmt.Errorf("error from user service"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+
+			w := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(w)
+			reqBody, _ := json.Marshal(test.requestBody)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(string(reqBody)))
+
+			mockUserService := mocks.NewUserService(t)
+			mockUserService.On("LoginAccount", ctx, &test.requestBody).Return(test.expectedRes, test.expectedErr).Maybe()
+			userController := controllers.NewUserController(mockUserService)
+
+			res := utils.ResponseMsgBody(test.expectedErr, test.expectedRes, nil)
+			if test.expectedRes == nil {
+				res = utils.ResponseMsgBody(test.expectedErr, nil, nil)
+			}
+			expectedResJSON, _ := json.Marshal(res)
+
+			userController.Login(ctx)
+			middlewares.ErrorMiddleware(ctx)
+
+			assert.Equal(t, utils.StatusCode(test.expectedErr), w.Code)
+			assert.Equal(t, string(expectedResJSON), w.Body.String())
 		})
 	}
 }
