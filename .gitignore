@@ -1,0 +1,4 @@
+.env
+/query/dropall.sql
+/query/test.sql
+notes.txt
