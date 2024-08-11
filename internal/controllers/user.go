@@ -24,7 +24,7 @@ type userController struct {
 	userService services.UserService
 }
 
-func NewUserTransaction(us services.UserService) *userController {
+func NewUserController(us services.UserService) *userController {
 	return &userController{
 		userService: us,
 	}

@@ -26,7 +26,7 @@ func SetupHandler(db *sql.DB) *HandlerOps {
 	userService := services.NewUserService(userRepository, walletRepository, transactor)
 	transactionService := services.NewTransactionService(transactionRepository, transactor)
 
-	userController := controllers.NewUserTransaction(userService)
+	userController := controllers.NewUserController(userService)
 	transactionController := controllers.NewTransactionController(transactionService)
 
 	return &HandlerOps{
