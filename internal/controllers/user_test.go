@@ -238,3 +238,61 @@ func TestUserControllerLogin(t *testing.T) {
 		})
 	}
 }
+
+func TestUserControllerGetDetails(t *testing.T) {
+	tests := []struct {
+		name        string
+		JWTUserID   int64
+		expectedRes *dtos.UserDetailsResponse
+		expectedErr error
+	}{
+		{
+			name:      "should return user detail response",
+			JWTUserID: 1,
+			expectedRes: &dtos.UserDetailsResponse{
+				Id:           1,
+				Username:     "lol",
+				Email:        "lmao@gmail.com",
+				WalletNumber: 3330000021022,
+				Balance:      10000,
+				GameAttempts: 0,
+				CreatedAt:    time.Now(),
+				UpdatedAt:    time.Now(),
+			},
+			expectedErr: nil,
+		},
+		{
+			name:        "should return error failed to get user detail",
+			JWTUserID:   1,
+			expectedRes: nil,
+			expectedErr: apperrors.NewCustomError(nil, errormsg.ErrMsgEmailNotExist, ""),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+
+			w := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(w)
+
+			ctx.Set("user_id", test.JWTUserID)
+
+			mockUserService := mocks.NewUserService(t)
+			mockUserService.On("GetDetails", ctx, test.JWTUserID).Return(test.expectedRes, test.expectedErr).Maybe()
+			userController := controllers.NewUserController(mockUserService)
+
+			res := utils.ResponseMsgBody(test.expectedErr, test.expectedRes, nil)
+			if test.expectedRes == nil {
+				res = utils.ResponseMsgBody(test.expectedErr, nil, nil)
+			}
+			expectedResJSON, _ := json.Marshal(res)
+
+			userController.GetDetails(ctx)
+			middlewares.ErrorMiddleware(ctx)
+
+			assert.Equal(t, utils.StatusCode(test.expectedErr), w.Code)
+			assert.Equal(t, string(expectedResJSON), w.Body.String())
+		})
+	}
+}
